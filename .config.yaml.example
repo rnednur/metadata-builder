@@ -1,0 +1,59 @@
+# Metadata Builder Configuration Example
+# Copy this file to .config.yaml and modify with your settings
+# This file will take precedence over the default configuration
+
+# Database connections
+database:
+  connections:
+    # Example PostgreSQL connection
+    my_postgres:
+      type: postgresql
+      host: localhost
+      port: 5432
+      database: my_database
+      username: my_username
+      password: my_password
+      connection_string: postgresql://my_username:my_password@localhost:5432/my_database
+    
+    # Example MySQL connection
+    my_mysql:
+      type: mysql
+      host: localhost
+      port: 3306
+      database: my_database
+      username: my_username
+      password: my_password
+      connection_string: mysql+pymysql://my_username:my_password@localhost:3306/my_database
+    
+    # Example SQLite connection
+    my_sqlite:
+      type: sqlite
+      database: /path/to/my_database.db
+      connection_string: sqlite:////path/to/my_database.db
+    
+    # Example with environment variables
+    # Environment variables can be used with ${VAR_NAME} syntax
+    # These will be loaded from .env file or system environment
+    secure_postgres:
+      type: postgresql
+      host: localhost
+      port: 5432
+      database: secure_db
+      username: ${DB_USER}
+      password: ${DB_PASSWORD}
+      connection_string: postgresql://${DB_USER}:${DB_PASSWORD}@localhost:5432/secure_db
+
+# LLM API configuration (optional)
+llm_api:
+  api_key: ${OPENAI_API_KEY}
+  base_url: https://api.openai.com/v1
+  model: gpt-4
+  max_tokens: 8000
+  temperature: 0.2
+
+# Metadata configuration (optional)
+metadata:
+  use_llm_analysis: true
+  include_column_suggestions: true
+  include_business_rules: true
+  include_relationships: true 

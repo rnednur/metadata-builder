@@ -1,0 +1,152 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metadata-builder"
+version = "1.0.0"
+description = "An interactive CLI tool for generating structured metadata from database tables with LLM enhancement"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+maintainers = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+keywords = ["database", "metadata", "cli", "llm", "lookml", "sql", "api", "fastapi"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Database",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Documentation",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "PyYAML>=6.0",
+    "sqlalchemy>=2.0.23",
+    "questionary>=2.0.1",
+    "rich>=13.6.0",
+    "pymysql>=1.1.0",
+    "duckdb>=0.8.1",
+    "psycopg2-binary>=2.9.9",
+    "openai>=1.3.7",
+    "tiktoken>=0.5.1",
+    "tenacity>=8.2.3",
+    "python-dotenv>=1.0.0",
+    "pandas>=2.1.3",
+    "numpy>=1.26.2",
+    "requests>=2.31.0",
+    "fastapi>=0.104.1",
+    "uvicorn>=0.24.0",
+    "pydantic>=2.5.2",
+    "python-dateutil>=2.8.2",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=22.0.0",
+    "flake8>=5.0.0",
+    "mypy>=1.0.0",
+    "pre-commit>=3.0.0",
+]
+oracle = ["cx_Oracle>=8.3.0"]
+bigquery = ["google-cloud-bigquery>=3.11.4"]
+kinetica = [
+    "kinetica-api>=7.1.0",
+    "gpudb>=7.1.2",
+]
+visualization = [
+    "matplotlib>=3.8.2",
+    "jupyter>=1.0.0",
+]
+ml = ["scikit-learn>=1.3.2", "sentence-transformers>=2.2.2"]
+all = [
+    "cx_Oracle>=8.3.0",
+    "google-cloud-bigquery>=3.11.4",
+    "kinetica-api>=7.1.0",
+    "gpudb>=7.1.2",
+    "matplotlib>=3.8.2",
+    "jupyter>=1.0.0",
+    "scikit-learn>=1.3.2",
+    "sentence-transformers>=2.2.2",
+]
+
+[project.scripts]
+metadata-builder = "metadata_builder.cli.main:main"
+metadata-builder-cli = "metadata_builder.cli.cli:main"
+metadata-builder-api = "metadata_builder.api.server:main"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/metadata-builder"
+Documentation = "https://github.com/yourusername/metadata-builder#readme"
+Repository = "https://github.com/yourusername/metadata-builder.git"
+"Bug Tracker" = "https://github.com/yourusername/metadata-builder/issues"
+
+[tool.setuptools]
+packages = ["metadata_builder", "metadata_builder.cli", "metadata_builder.core", "metadata_builder.config", "metadata_builder.utils", "metadata_builder.database", "metadata_builder.metadata", "metadata_builder.api", "metadata_builder.api.routers"]
+
+[tool.setuptools.package-data]
+metadata_builder = ["config/*.yaml", "*.yaml.example"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--cov=metadata_builder --cov-report=html --cov-report=term-missing"
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "questionary.*",
+    "rich.*",
+    "openai.*",
+    "tiktoken.*",
+]
+ignore_missing_imports = true 
