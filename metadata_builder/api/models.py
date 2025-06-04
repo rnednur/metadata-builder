@@ -75,7 +75,8 @@ class MetadataGenerationRequest(BaseModel):
                 "table_name": "users",
                 "schema_name": "public",
                 "sample_size": 100,
-                "num_samples": 5
+                "num_samples": 5,
+                "max_partitions": 10
             }
         }
     }
@@ -86,6 +87,9 @@ class MetadataGenerationRequest(BaseModel):
     analysis_sql: Optional[str] = Field(None, description="Custom SQL query for analysis")
     sample_size: int = Field(100, description="Sample size for each sample", ge=1, le=10000)
     num_samples: int = Field(5, description="Number of samples to take", ge=1, le=20)
+    
+    # BigQuery partition-specific options
+    max_partitions: int = Field(10, description="Maximum number of partitions to sample from (BigQuery)", ge=1, le=100)
     
     # Optional sections - can be disabled to save time/cost
     include_relationships: bool = Field(True, description="Include relationship analysis")

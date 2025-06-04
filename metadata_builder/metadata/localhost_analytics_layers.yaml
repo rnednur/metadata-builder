@@ -1,0 +1,65 @@
+additional_insights: {}
+aggregation_rules: {}
+business_rules: {}
+categorical_definitions: {}
+columns:
+  created_at:
+    alias: created_at
+    data_type: TIMESTAMP
+    default: now()
+    description: ''
+    nullable: true
+    primary_key: false
+  description:
+    alias: description
+    data_type: TEXT
+    default: None
+    description: ''
+    nullable: true
+    primary_key: false
+  id:
+    alias: id
+    data_type: VARCHAR(255)
+    default: None
+    description: ''
+    nullable: false
+    primary_key: true
+  is_active:
+    alias: is_active
+    data_type: BOOLEAN
+    default: 'true'
+    description: ''
+    nullable: true
+    primary_key: false
+  name:
+    alias: name
+    data_type: VARCHAR(255)
+    default: None
+    description: ''
+    nullable: false
+    primary_key: false
+  style:
+    alias: style
+    data_type: JSONB
+    default: None
+    description: ''
+    nullable: true
+    primary_key: false
+  updated_at:
+    alias: updated_at
+    data_type: TIMESTAMP
+    default: now()
+    description: ''
+    nullable: true
+    primary_key: false
+constraints: {}
+data_quality: {}
+database_name: localhost
+description: ''
+processing_stats:
+  duration_seconds: 0
+  timestamp: '2025-05-19T21:22:43.100115'
+queries: {}
+relationships: {}
+schema_name: analytics
+table_name: layers

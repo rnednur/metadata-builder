@@ -128,34 +128,14 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Project-specific ignores
-# Configuration files with sensitive data
-.config.yaml
-config.yaml
-metadata_builder.log
-
-# Generated metadata files
-metadata/
-*.yaml
-*.json
-
-# Database files
-*.db
-*.sqlite
-*.sqlite3
-
-# Test files
-test_*.py
-*_test.py
-
-# IDE files
+# IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS files
+# macOS
 .DS_Store
 .DS_Store?
 ._*
@@ -164,8 +144,47 @@ test_*.py
 ehthumbs.db
 Thumbs.db
 
+# Project specific
+*.log
+logs/
+.config.yaml
+node_modules/
+dist/
+build/
+
+# Frontend specific
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# Generated metadata (examples are OK, but not actual generated data)
+metadata/*.json
+metadata/*.yaml
+!metadata/example_*.json
+!metadata/example_*.yaml
+
+# API keys and secrets
+.env
+.env.local
+.env.production
+secrets/
+
 # Temporary files
-tmp/
-temp/
 *.tmp
-*.temp 
+*.temp
+.temp/
+.tmp/
+
+# Docker volumes and data
+docker-data/
+volumes/
+
+# Redis data
+dump.rdb 

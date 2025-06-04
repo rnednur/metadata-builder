@@ -1,0 +1,173 @@
+column_simplification:
+  boolean_columns:
+    data_types:
+    - boolean
+    - bool
+    patterns:
+    - ^is_.*
+    - ^has_.*
+    - ^was_.*
+    - ^enabled$
+    - ^active$
+    - ^deleted$
+  id_columns:
+    data_types:
+    - int
+    - integer
+    - bigint
+    patterns:
+    - ^id$
+    - .*_id$
+  timestamp_columns:
+    data_types:
+    - timestamp
+    - datetime
+    - date
+    patterns:
+    - .*_at$
+    - .*_date$
+    - ^date$
+    - ^created$
+    - ^updated$
+    - ^timestamp$
+databases:
+  postgres:
+    connection_string: postgresql://postgres:postgres@localhost:5432/postgres
+    database: postgres
+    host: localhost
+    password: postgres
+    port: '5432'
+    type: postgresql
+    username: postgres
+  sample_duckdb:
+    connection_string: duckdb:///./data/mydb.duckdb
+    database: ./data/mydb.duckdb
+    type: duckdb
+  sample_mysql:
+    connection_string: mysql+pymysql://root:${MYSQL_PASSWORD}@localhost:3306/mydb
+    database: mydb
+    host: localhost
+    password: ${MYSQL_PASSWORD}
+    port: 3306
+    type: mysql
+    username: root
+  sample_oracle_service:
+    connection_string: oracle+cx_oracle://system:${ORACLE_PASSWORD}@localhost:1521/?service_name=XEPDB1
+    database: XEPDB1
+    host: localhost
+    password: ${ORACLE_PASSWORD}
+    port: 1521
+    service_name: XEPDB1
+    type: oracle
+    username: system
+  sample_oracle_sid:
+    connection_string: oracle+cx_oracle://system:${ORACLE_PASSWORD}@localhost:1521/?sid=XE
+    database: XE
+    host: localhost
+    password: ${ORACLE_PASSWORD}
+    port: 1521
+    sid: XE
+    type: oracle
+    username: system
+  sample_oracle_tns:
+    connection_string: oracle+cx_oracle://system:${ORACLE_PASSWORD}@my_tns_name
+    password: ${ORACLE_PASSWORD}
+    tns_name: my_tns_name
+    type: oracle
+    username: system
+  sample_postgres:
+    connection_string: postgresql://postgres:${POSTGRES_PASSWORD}@localhost:5432/mydb
+    database: mydb
+    host: localhost
+    password: ${POSTGRES_PASSWORD}
+    port: 5432
+    type: postgresql
+    username: postgres
+  sample_sqlite:
+    connection_string: sqlite:///./data/mydb.sqlite
+    database: ./data/mydb.sqlite
+    type: sqlite
+glossary:
+  auto_match: true
+  enabled: true
+  path: ./glossary/glossary.json
+  similarity_threshold: 0.85
+llm_api:
+  api_key: ${OPENAI_API_KEY}
+  base_url: https://api.openai.com/v1
+  max_tokens: 8192
+  model: gpt-4-turbo-preview
+  prompt_templates:
+    column_definition: 'Given the column ''{{column_name}}'' from the table ''{{table_name}}''
+      in database ''{{database_name}}'',
+
+      provide a business-friendly definition. Here''s some context about the column:
+
+
+      Data type: {{data_type}}
+
+      Sample values: {{sample_values}}
+
+      Constraints: {{constraints}}
+
+
+      Your definition should be concise, clear, and focused on the business meaning.
+
+      '
+    table_description: 'Describe the purpose and content of the table ''{{table_name}}''
+      in database ''{{database_name}}'' based on:
+
+
+      Schema: {{schema}}
+
+      Sample data: {{sample_data}}
+
+      Constraints: {{constraints}}
+
+
+      Your description should include:
+
+      1. The main purpose of this table
+
+      2. Key data fields and their significance
+
+      3. How this table might relate to other tables
+
+      4. Typical business use cases for this data
+
+      '
+  temperature: 0.2
+metadata:
+  default_format: yaml
+  output_dir: ./metadata
+  templates:
+    column:
+      business_name: ''
+      constraints: []
+      data_type: ''
+      description: ''
+      format: ''
+      is_nullable: true
+      name: ''
+      sample_values: []
+      tags: []
+    table:
+      business_name: ''
+      columns: []
+      description: ''
+      foreign_keys: []
+      indexes: []
+      last_updated: ''
+      name: ''
+      owner: ''
+      primary_key: []
+      rows_count: 0
+      sample_data: []
+      tags: []
+      update_frequency: ''
+  version_control: true
+sqlite:
+  cache_size: -2000
+  journal_mode: WAL
+  synchronous: NORMAL
+  temp_store: MEMORY

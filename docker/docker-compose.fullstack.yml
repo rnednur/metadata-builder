@@ -1,0 +1,163 @@
+version: '3.8'
+
+services:
+  # Redis for caching and session storage
+  redis:
+    image: redis:7-alpine
+    container_name: metadata-builder-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-metadata_redis_pass}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - metadata-network
+
+  # Backend API
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    container_name: metadata-builder-api
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_BASE_URL=${OPENAI_API_BASE_URL:-https://api.openai.com/v1}
+      - OPENAI_API_MODEL=${OPENAI_API_MODEL:-gpt-4-turbo-preview}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENABLE_TOKEN_TRACKING=${ENABLE_TOKEN_TRACKING:-true}
+      - MAX_TOKENS_PER_REQUEST=${MAX_TOKENS_PER_REQUEST:-8192}
+      - MAX_RETRY_ATTEMPTS=${MAX_RETRY_ATTEMPTS:-3}
+      - RETRY_INITIAL_WAIT_SECONDS=${RETRY_INITIAL_WAIT_SECONDS:-1}
+      - RETRY_MAX_WAIT_SECONDS=${RETRY_MAX_WAIT_SECONDS:-10}
+      - REDIS_URL=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-metadata_redis_pass}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:80}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-change-in-production}
+      - DATABASE_URL=${DATABASE_URL:-}
+    volumes:
+      - ../metadata:/app/metadata
+      - ../configs/.config.yaml:/app/.config.yaml:ro
+      - ../logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - metadata-network
+
+  # Frontend
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: metadata-builder-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:8000}
+      - REACT_APP_WS_URL=${REACT_APP_WS_URL:-ws://localhost:8000}
+      - REACT_APP_VERSION=${REACT_APP_VERSION:-1.0.0}
+      - REACT_APP_ENVIRONMENT=${REACT_APP_ENVIRONMENT:-development}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - metadata-network
+
+  # Celery Worker for background tasks (optional)
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    container_name: metadata-builder-worker
+    command: celery -A metadata_builder.worker worker --loglevel=info
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_BASE_URL=${OPENAI_API_BASE_URL:-https://api.openai.com/v1}
+      - OPENAI_API_MODEL=${OPENAI_API_MODEL:-gpt-4-turbo-preview}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - REDIS_URL=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-metadata_redis_pass}
+      - DATABASE_URL=${DATABASE_URL:-}
+    volumes:
+      - ../metadata:/app/metadata
+      - ../configs/.config.yaml:/app/.config.yaml:ro
+      - ../logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - metadata-network
+
+  # Celery Beat for scheduled tasks (optional)
+  scheduler:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    container_name: metadata-builder-scheduler
+    command: celery -A metadata_builder.worker beat --loglevel=info
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - REDIS_URL=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-metadata_redis_pass}
+      - DATABASE_URL=${DATABASE_URL:-}
+    volumes:
+      - ../metadata:/app/metadata
+      - ../configs/.config.yaml:/app/.config.yaml:ro
+      - ../logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - metadata-network
+
+  # Nginx reverse proxy (optional, for production)
+  nginx:
+    image: nginx:alpine
+    container_name: metadata-builder-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ../logs/nginx:/var/log/nginx
+    depends_on:
+      - frontend
+      - api
+    restart: unless-stopped
+    networks:
+      - metadata-network
+    profiles:
+      - production
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  metadata-network:
+    driver: bridge 

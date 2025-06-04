@@ -162,6 +162,9 @@ def get_db_handler(db_name: str):
     elif db_type == 'oracle':
         from ..utils.database_handlers import OracleHandler
         return OracleHandler(db_name)
+    elif db_type == 'bigquery':
+        from ..utils.bigquery_handler import BigQueryHandler
+        return BigQueryHandler(db_name)
     elif db_type == 'duckdb':
         from ..utils.database_handler import SQLAlchemyHandler
         return SQLAlchemyHandler(db_name)

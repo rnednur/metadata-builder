@@ -8,7 +8,7 @@ import concurrent.futures
 from datetime import datetime, timedelta
 
 from ..utils.database_handler import SQLAlchemyHandler
-from ..config.config import get_llm_api_config
+from ..config.config import get_llm_api_config, get_db_handler
 
 # Import utility functions
 from ..utils.metadata_utils import (
@@ -51,14 +51,14 @@ def get_table_info(
     Returns:
         Tuple with schema dictionary and sample DataFrame
     """
-    db = SQLAlchemyHandler(db_name)
+    db = get_db_handler(db_name)
     try:
         # Get schema using database handler
-        schema = db.get_table_schema(table_name)
+        schema = db.get_table_schema(table_name, schema_name)
         logger.debug(f"schema: {schema}")
 
         # Get table indexes
-        indexes = db.get_table_indexes(table_name)
+        indexes = db.get_table_indexes(table_name, schema_name)
         logger.debug(f"indexes: {indexes}")
 
         # Store indexes in global context for later use
@@ -66,40 +66,86 @@ def get_table_info(
             get_table_info._table_indexes = {}
         get_table_info._table_indexes[f"{db_name}.{table_name}"] = indexes
 
-        # Retrieve sample data
-        if analysis_sql:
-            # Check if analysis_sql already contains LIMIT
-            has_limit = 'LIMIT' in analysis_sql.upper()
-            
-            if not has_limit and sample_size > 0 and num_samples > 0:
-                logger.info(f"Applying sampling to analysis SQL: size={sample_size}, samples={num_samples}")
+        # Check if this is BigQuery and use partition-aware sampling
+        from ..utils.bigquery_handler import BigQueryHandler
+        if isinstance(db, BigQueryHandler):
+            # Use BigQuery's partition-aware sampling
+            sample_data_list = db.get_partition_aware_sample(
+                table_name=table_name,
+                schema_name=schema_name,
+                sample_size=sample_size,
+                num_samples=num_samples
+            )
+            df = pd.DataFrame(sample_data_list)
+        else:
+            # Retrieve sample data using standard method
+            if analysis_sql:
+                # Check if analysis_sql already contains LIMIT
+                has_limit = 'LIMIT' in analysis_sql.upper()
                 
-                # Check query cost before executing
-                is_safe, reason = db.check_query_cost(analysis_sql, table_name)
-                if not is_safe:
-                    logger.warning(f"Query cost analysis warning: {reason}")
-                    raise ValueError(f"Query would be too costly to execute: {reason}")
-                
+                if not has_limit and sample_size > 0 and num_samples > 0:
+                    logger.info(f"Applying sampling to analysis SQL: size={sample_size}, samples={num_samples}")
+                    
+                    # Check query cost before executing
+                    is_safe, reason = db.check_query_cost(analysis_sql, table_name, schema_name)
+                    if not is_safe:
+                        logger.warning(f"Query cost analysis warning: {reason}")
+                        raise ValueError(f"Query would be too costly to execute: {reason}")
+                    
+                    samples = []
+                    # Get total count for offset calculation
+                    count_sql = f"SELECT COUNT(*) as count FROM ({analysis_sql}) AS analysis_query"
+                    count_result = db.fetch_one(count_sql)
+                    total_count = int(count_result['count']) if count_result else 0
+                    
+                    if total_count > 0:
+                        # Calculate offsets for random sampling
+                        if total_count <= sample_size * num_samples:
+                            # If total count is small, just get everything
+                            query = f"{analysis_sql} LIMIT {total_count}"
+                            result = db.fetch_all(query)
+                            samples.append(pd.DataFrame(result))
+                        else:
+                            # Random sampling using different offsets
+                            max_offset = total_count - sample_size
+                            offsets = random.sample(range(max_offset), min(num_samples, max_offset))
+                            
+                            for offset in offsets:
+                                query = f"{analysis_sql} LIMIT {sample_size} OFFSET {offset}"
+                                result = db.fetch_all(query)
+                                if result:
+                                    samples.append(pd.DataFrame(result))
+                    
+                    # Combine all samples
+                    if samples:
+                        df = pd.concat(samples, ignore_index=True)
+                    else:
+                        df = pd.DataFrame()
+                else:
+                    # Analysis SQL already has LIMIT or sampling is disabled
+                    result = db.fetch_all(analysis_sql)
+                    df = pd.DataFrame(result)
+            else:
+                # Default sampling from table
                 samples = []
-                # Get total count for offset calculation
-                count_sql = f"SELECT COUNT(*) as count FROM ({analysis_sql}) AS analysis_query"
-                count_result = db.fetch_one(count_sql)
-                total_count = int(count_result['count']) if count_result else 0
                 
-                if total_count > 0:
-                    # Calculate offsets for random sampling
-                    if total_count <= sample_size * num_samples:
-                        # If total count is small, just get everything
-                        query = f"{analysis_sql} LIMIT {total_count}"
+                # Get table row count
+                row_count = db.get_row_count(table_name, schema_name)
+                if row_count and row_count > 0:
+                    if row_count <= sample_size * num_samples:
+                        # Small table, get everything
+                        table_ref = f"{schema_name}.{table_name}" if schema_name else table_name
+                        query = f"SELECT * FROM {table_ref} LIMIT {row_count}"
                         result = db.fetch_all(query)
                         samples.append(pd.DataFrame(result))
                     else:
-                        # Random sampling using different offsets
-                        max_offset = total_count - sample_size
+                        # Random sampling with different offsets
+                        max_offset = row_count - sample_size
                         offsets = random.sample(range(max_offset), min(num_samples, max_offset))
                         
+                        table_ref = f"{schema_name}.{table_name}" if schema_name else table_name
                         for offset in offsets:
-                            query = f"{analysis_sql} LIMIT {sample_size} OFFSET {offset}"
+                            query = f"SELECT * FROM {table_ref} LIMIT {sample_size} OFFSET {offset}"
                             result = db.fetch_all(query)
                             if result:
                                 samples.append(pd.DataFrame(result))
@@ -109,40 +155,6 @@ def get_table_info(
                     df = pd.concat(samples, ignore_index=True)
                 else:
                     df = pd.DataFrame()
-            else:
-                # Analysis SQL already has LIMIT or sampling is disabled
-                result = db.fetch_all(analysis_sql)
-                df = pd.DataFrame(result)
-        else:
-            # Default sampling from table
-            samples = []
-            
-            # Get table row count
-            row_count = db.get_row_count(table_name, schema_name)
-            if row_count and row_count > 0:
-                if row_count <= sample_size * num_samples:
-                    # Small table, get everything
-                    table_ref = f"{schema_name}.{table_name}" if schema_name else table_name
-                    query = f"SELECT * FROM {table_ref} LIMIT {row_count}"
-                    result = db.fetch_all(query)
-                    samples.append(pd.DataFrame(result))
-                else:
-                    # Random sampling with different offsets
-                    max_offset = row_count - sample_size
-                    offsets = random.sample(range(max_offset), min(num_samples, max_offset))
-                    
-                    table_ref = f"{schema_name}.{table_name}" if schema_name else table_name
-                    for offset in offsets:
-                        query = f"SELECT * FROM {table_ref} LIMIT {sample_size} OFFSET {offset}"
-                        result = db.fetch_all(query)
-                        if result:
-                            samples.append(pd.DataFrame(result))
-            
-            # Combine all samples
-            if samples:
-                df = pd.concat(samples, ignore_index=True)
-            else:
-                df = pd.DataFrame()
         
         return schema, df
     
@@ -896,6 +908,13 @@ def generate_complete_table_metadata(
         # Step 10: Assemble final metadata
         indexes = getattr(get_table_info, '_table_indexes', {}).get(f"{db_name}.{table_name}", [])
         
+        # Get partition information for BigQuery tables
+        partition_info = {}
+        db_handler = get_db_handler(db_name)
+        from ..utils.bigquery_handler import BigQueryHandler
+        if isinstance(db_handler, BigQueryHandler):
+            partition_info = db_handler.get_partition_info(table_name, schema_name)
+        
         # Build base metadata structure
         metadata = {
             "database_name": db_name,
@@ -926,6 +945,10 @@ def generate_complete_table_metadata(
             "indexes": indexes,
             "processing_stats": processing_stats
         }
+        
+        # Add partition information for BigQuery tables
+        if partition_info:
+            metadata["partition_info"] = partition_info
         
         # Add optional sections based on parameters
         if include_relationships:

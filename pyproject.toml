@@ -14,7 +14,7 @@ authors = [
 maintainers = [
     {name = "Your Name", email = "your.email@example.com"}
 ]
-keywords = ["database", "metadata", "cli", "llm", "lookml", "sql", "api", "fastapi"]
+keywords = ["database", "metadata", "cli", "llm", "lookml", "sql", "api", "fastapi", "frontend", "web"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -30,6 +30,7 @@ classifiers = [
     "Topic :: Database",
     "Topic :: Software Development :: Code Generators",
     "Topic :: Documentation",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
 ]
 requires-python = ">=3.8"
 dependencies = [
@@ -51,8 +52,10 @@ dependencies = [
     "uvicorn>=0.24.0",
     "pydantic>=2.5.2",
     "python-dateutil>=2.8.2",
+    "websockets>=11.0.0",
+    "python-multipart>=0.0.6",
+    "aiofiles>=23.2.1",
 ]
-dynamic = ["version"]
 
 [project.optional-dependencies]
 dev = [
@@ -74,6 +77,11 @@ visualization = [
     "jupyter>=1.0.0",
 ]
 ml = ["scikit-learn>=1.3.2", "sentence-transformers>=2.2.2"]
+frontend = [
+    "redis>=4.5.4",
+    "celery>=5.3.4",
+    "fastapi-cache2>=0.2.0",
+]
 all = [
     "cx_Oracle>=8.3.0",
     "google-cloud-bigquery>=3.11.4",
@@ -83,6 +91,9 @@ all = [
     "jupyter>=1.0.0",
     "scikit-learn>=1.3.2",
     "sentence-transformers>=2.2.2",
+    "redis>=4.5.4",
+    "celery>=5.3.4",
+    "fastapi-cache2>=0.2.0",
 ]
 
 [project.scripts]
