@@ -8,8 +8,133 @@ from ..config.config import get_db_connection_string, get_db_config
 
 logger = logging.getLogger(__name__)
 
+# Cache for database handlers to avoid creating too many instances
+_handler_cache = {}
+
+def get_database_handler(db_name: str, connection_manager=None) -> SQLAlchemyHandler:
+    """
+    Factory function to get the appropriate database handler based on database type.
+    Uses caching to avoid creating too many handler instances.
+    
+    Args:
+        db_name: Database connection name
+        connection_manager: Optional ConnectionManager instance to get connection config
+        
+    Returns:
+        Appropriate database handler instance
+    """
+    try:
+        # Check cache first
+        if db_name in _handler_cache:
+            cached_handler = _handler_cache[db_name]
+            # Verify the connection is still valid
+            if cached_handler.connection and not cached_handler.connection.closed:
+                logger.debug(f"Reusing cached database handler for {db_name}")
+                return cached_handler
+            else:
+                # Remove invalid cached handler
+                logger.debug(f"Removing invalid cached handler for {db_name}")
+                del _handler_cache[db_name]
+        
+        # Try to get config from connection manager first (handles user/system/config connections)
+        db_config = None
+        if connection_manager and connection_manager.connection_exists(db_name):
+            # Get config with cached credentials merged in
+            db_config = connection_manager.get_connection_with_credentials(db_name)
+        
+        # Fallback to config file if no connection manager provided
+        if not db_config:
+            db_config = get_db_config(db_name)
+        
+        if not db_config:
+            logger.warning(f"No config found for database {db_name}, using default SQLAlchemyHandler")
+            handler = SQLAlchemyHandler(db_name)
+            _handler_cache[db_name] = handler
+            return handler
+        
+        db_type = db_config.get('type', '').lower()
+        
+        # Create handler without auto-connecting to avoid config file dependency
+        if db_type == 'postgresql':
+            handler = PostgreSQLHandler(None)  # Don't auto-connect
+        elif db_type == 'sqlite':
+            handler = SQLiteHandler(None)
+        elif db_type == 'mysql':
+            handler = MySQLHandler(None)
+        elif db_type == 'oracle':
+            handler = OracleHandler(None)
+        elif db_type == 'bigquery':
+            from ..utils.bigquery_handler import BigQueryHandler
+            handler = BigQueryHandler(None)
+        else:
+            logger.warning(f"Unsupported database type {db_type} for {db_name}, using default SQLAlchemyHandler")
+            handler = SQLAlchemyHandler(None)
+        
+        # Set connection info and connect manually
+        handler.db_name = db_name
+        handler.config = db_config
+        handler.connect_with_config(db_config)
+        
+        # Cache the handler
+        _handler_cache[db_name] = handler
+        
+        return handler
+            
+    except Exception as e:
+        logger.error(f"Error creating database handler for {db_name}: {str(e)}")
+        # Fallback to basic handler
+        handler = SQLAlchemyHandler(db_name)
+        _handler_cache[db_name] = handler
+        return handler
+
+
+def clear_database_handler_cache():
+    """Clear the database handler cache. Call this when connections are updated."""
+    global _handler_cache
+    # Close all cached connections
+    for handler in _handler_cache.values():
+        try:
+            handler.close()
+        except Exception as e:
+            logger.warning(f"Error closing cached handler: {e}")
+    _handler_cache.clear()
+    logger.info("Database handler cache cleared")
+
 class PostgreSQLHandler(SQLAlchemyHandler):
     """PostgreSQL specific implementation of DatabaseHandler"""
+    
+    def get_database_tables(self, schema_name: str = None) -> List[str]:
+        """
+        Get tables in PostgreSQL database
+        
+        Args:
+            schema_name: Schema name (optional, defaults to 'public')
+            
+        Returns:
+            List of table names
+        """
+        try:
+            if not schema_name:
+                schema_name = 'public'
+            
+            # PostgreSQL-specific query to get tables
+            tables_query = """
+                SELECT 
+                    table_name 
+                FROM 
+                    information_schema.tables 
+                WHERE 
+                    table_schema = :schema_name
+                    AND table_type = 'BASE TABLE'
+                ORDER BY 
+                    table_name
+            """
+            results = self.fetch_all(tables_query, {"schema_name": schema_name})
+            return [row.get('table_name') for row in results]
+            
+        except Exception as e:
+            logger.error(f"Error getting PostgreSQL tables: {str(e)}")
+            return []
     
     def get_table_indexes(self, table_name: str, schema_name: str = 'public') -> List[Dict[str, Any]]:
         """
@@ -85,6 +210,204 @@ class PostgreSQLHandler(SQLAlchemyHandler):
             
         except Exception as e:
             logger.error(f"Error getting PostgreSQL table indexes: {str(e)}")
+            return []
+
+    def get_detailed_table_info(self, table_name: str, schema_name: str = 'public') -> Dict[str, Any]:
+        """
+        Get comprehensive table information including columns with constraints and indexes
+        
+        Args:
+            table_name: Table name
+            schema_name: Schema name (defaults to 'public')
+            
+        Returns:
+            Dictionary with detailed table information including:
+            - columns: List of ColumnInfo objects
+            - indexes: List of IndexInfo objects  
+            - table_type: Type of table
+            - comment: Table comment
+        """
+        try:
+            # Get detailed column information with constraints
+            columns_query = """
+                SELECT 
+                    c.column_name,
+                    c.data_type,
+                    c.is_nullable,
+                    c.column_default,
+                    c.character_maximum_length,
+                    c.numeric_precision,
+                    c.numeric_scale,
+                    col_desc.description as column_comment,
+                    -- Check if column is part of primary key
+                    CASE WHEN pk.column_name IS NOT NULL THEN true ELSE false END as is_primary_key,
+                    -- Check if column is part of unique constraint
+                    CASE WHEN uc.column_name IS NOT NULL THEN true ELSE false END as is_unique,
+                    -- Foreign key information
+                    fk.foreign_table_name,
+                    fk.foreign_column_name
+                FROM 
+                    information_schema.columns c
+                LEFT JOIN (
+                    -- Primary key columns
+                    SELECT kcu.column_name
+                    FROM information_schema.table_constraints tc
+                    JOIN information_schema.key_column_usage kcu 
+                        ON tc.constraint_name = kcu.constraint_name
+                    WHERE tc.table_name = :table_name 
+                        AND tc.table_schema = :schema_name
+                        AND tc.constraint_type = 'PRIMARY KEY'
+                ) pk ON c.column_name = pk.column_name
+                LEFT JOIN (
+                    -- Unique constraint columns
+                    SELECT kcu.column_name
+                    FROM information_schema.table_constraints tc
+                    JOIN information_schema.key_column_usage kcu 
+                        ON tc.constraint_name = kcu.constraint_name
+                    WHERE tc.table_name = :table_name 
+                        AND tc.table_schema = :schema_name
+                        AND tc.constraint_type = 'UNIQUE'
+                ) uc ON c.column_name = uc.column_name
+                LEFT JOIN (
+                    -- Foreign key information
+                    SELECT 
+                        kcu.column_name,
+                        ccu.table_name AS foreign_table_name,
+                        ccu.column_name AS foreign_column_name
+                    FROM information_schema.table_constraints tc
+                    JOIN information_schema.key_column_usage kcu 
+                        ON tc.constraint_name = kcu.constraint_name
+                    JOIN information_schema.constraint_column_usage ccu 
+                        ON ccu.constraint_name = tc.constraint_name
+                    WHERE tc.table_name = :table_name 
+                        AND tc.table_schema = :schema_name
+                        AND tc.constraint_type = 'FOREIGN KEY'
+                ) fk ON c.column_name = fk.column_name
+                LEFT JOIN (
+                    -- Column comments
+                    SELECT 
+                        a.attname as column_name,
+                        pg_catalog.col_description(a.attrelid, a.attnum) as description
+                    FROM pg_catalog.pg_attribute a
+                    JOIN pg_catalog.pg_class pgc ON pgc.oid = a.attrelid
+                    JOIN pg_catalog.pg_namespace n ON n.oid = pgc.relnamespace
+                    WHERE pgc.relname = :table_name
+                        AND n.nspname = :schema_name
+                        AND a.attnum > 0
+                        AND NOT a.attisdropped
+                ) col_desc ON c.column_name = col_desc.column_name
+                WHERE 
+                    c.table_name = :table_name 
+                    AND c.table_schema = :schema_name
+                ORDER BY c.ordinal_position
+            """
+            
+            columns_result = self.fetch_all(columns_query, {
+                "table_name": table_name,
+                "schema_name": schema_name
+            })
+            
+            # Convert to ColumnInfo objects
+            from ..api.models import ColumnInfo
+            columns = []
+            for col in columns_result:
+                columns.append(ColumnInfo(
+                    name=col['column_name'],
+                    data_type=col['data_type'],
+                    is_nullable=col['is_nullable'] == 'YES',
+                    default_value=col['column_default'],
+                    is_primary_key=col['is_primary_key'],
+                    is_foreign_key=bool(col['foreign_table_name']),
+                    foreign_key_table=col['foreign_table_name'],
+                    foreign_key_column=col['foreign_column_name'],
+                    is_unique=col['is_unique'],
+                    character_maximum_length=col['character_maximum_length'],
+                    numeric_precision=col['numeric_precision'],
+                    numeric_scale=col['numeric_scale'],
+                    comment=col['column_comment']
+                ))
+            
+            # Get indexes using existing method
+            indexes_data = self.get_table_indexes(table_name, schema_name)
+            
+            # Convert to IndexInfo objects
+            from ..api.models import IndexInfo
+            indexes = []
+            for idx in indexes_data:
+                indexes.append(IndexInfo(
+                    name=idx['name'],
+                    columns=idx['columns'],
+                    is_unique='UNIQUE' in idx.get('description', '').upper(),
+                    is_primary='PRIMARY' in idx.get('description', '').upper(),
+                    index_type=idx.get('description', 'INDEX')
+                ))
+            
+            # Get table information
+            table_info_query = """
+                SELECT 
+                    table_type,
+                    obj_description(pgc.oid) as table_comment
+                FROM information_schema.tables t
+                LEFT JOIN pg_catalog.pg_class pgc ON pgc.relname = t.table_name
+                LEFT JOIN pg_catalog.pg_namespace n ON n.oid = pgc.relnamespace
+                WHERE t.table_name = :table_name 
+                    AND t.table_schema = :schema_name
+                    AND n.nspname = :schema_name
+            """
+            
+            table_info_result = self.fetch_one(table_info_query, {
+                "table_name": table_name,
+                "schema_name": schema_name
+            })
+            
+            table_type = "table"
+            table_comment = None
+            if table_info_result:
+                table_type = table_info_result.get('table_type', 'BASE TABLE').lower()
+                table_comment = table_info_result.get('table_comment')
+                
+            return {
+                "columns": columns,
+                "indexes": indexes,
+                "table_type": table_type,
+                "comment": table_comment
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting detailed PostgreSQL table info: {str(e)}")
+            return {
+                "columns": [],
+                "indexes": [],
+                "table_type": "table",
+                "comment": None
+            }
+    
+    def get_database_schemas(self) -> List[str]:
+        """
+        Get available schemas in PostgreSQL database
+        
+        Returns:
+            List of schema names
+        """
+        try:
+            # PostgreSQL-specific query to get accessible schemas
+            schema_query = """
+                SELECT 
+                    schema_name 
+                FROM 
+                    information_schema.schemata 
+                WHERE 
+                    schema_name NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+                    AND schema_name NOT LIKE 'pg_temp_%'
+                    AND schema_name NOT LIKE 'pg_toast_temp_%'
+                ORDER BY 
+                    schema_name
+            """
+            results = self.fetch_all(schema_query, {})
+            return [row.get('schema_name') for row in results]
+            
+        except Exception as e:
+            logger.error(f"Error getting PostgreSQL schemas: {str(e)}")
             return []
 
 class SQLiteHandler(SQLAlchemyHandler):

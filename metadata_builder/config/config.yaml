@@ -1,0 +1,140 @@
+column_simplification:
+  boolean_columns:
+    data_types:
+    - boolean
+    - bool
+    patterns:
+    - ^is_.*
+    - ^has_.*
+    - ^was_.*
+    - ^enabled$
+    - ^active$
+    - ^deleted$
+  id_columns:
+    data_types:
+    - int
+    - integer
+    - bigint
+    patterns:
+    - ^id$
+    - .*_id$
+  timestamp_columns:
+    data_types:
+    - timestamp
+    - datetime
+    - date
+    patterns:
+    - .*_at$
+    - .*_date$
+    - ^date$
+    - ^created$
+    - ^updated$
+    - ^timestamp$
+# Database configuration
+database:
+  # Schema for user management tables
+  auth_schema: metadata_builder
+  
+  # Main connection (used for user management)
+  connection_string: postgresql://postgres:postgres@localhost:5432/postgres
+  host: localhost
+  port: 5432
+  database: postgres
+  username: postgres
+  password: postgres
+  type: postgresql
+
+# User connection databases (legacy - will be migrated to user_connections table)
+databases:
+  postgres:
+    connection_string: postgresql://postgres:postgres@localhost:5432/postgres
+    database: postgres
+    host: localhost
+    password: postgres
+    port: '5432'
+    type: postgresql
+    username: postgres
+glossary:
+  auto_match: true
+  enabled: true
+  path: ./glossary/glossary.json
+  similarity_threshold: 0.85
+llm_api:
+  api_key: ${OPENAI_API_KEY}
+  base_url: https://api.openai.com/v1
+  max_tokens: 8192
+  model: gpt-4-turbo-preview
+  prompt_templates:
+    column_definition: 'Given the column ''{{column_name}}'' from the table ''{{table_name}}''
+      in database ''{{database_name}}'',
+
+      provide a business-friendly definition. Here''s some context about the column:
+
+
+      Data type: {{data_type}}
+
+      Sample values: {{sample_values}}
+
+      Constraints: {{constraints}}
+
+
+      Your definition should be concise, clear, and focused on the business meaning.
+
+      '
+    table_description: 'Describe the purpose and content of the table ''{{table_name}}''
+      in database ''{{database_name}}'' based on:
+
+
+      Schema: {{schema}}
+
+      Sample data: {{sample_data}}
+
+      Constraints: {{constraints}}
+
+
+      Your description should include:
+
+      1. The main purpose of this table
+
+      2. Key data fields and their significance
+
+      3. How this table might relate to other tables
+
+      4. Typical business use cases for this data
+
+      '
+  temperature: 0.2
+metadata:
+  default_format: yaml
+  output_dir: ./metadata_storage
+  templates:
+    column:
+      business_name: ''
+      constraints: []
+      data_type: ''
+      description: ''
+      format: ''
+      is_nullable: true
+      name: ''
+      sample_values: []
+      tags: []
+    table:
+      business_name: ''
+      columns: []
+      description: ''
+      foreign_keys: []
+      indexes: []
+      last_updated: ''
+      name: ''
+      owner: ''
+      primary_key: []
+      rows_count: 0
+      sample_data: []
+      tags: []
+      update_frequency: ''
+  version_control: true
+sqlite:
+  cache_size: -2000
+  journal_mode: WAL
+  synchronous: NORMAL
+  temp_store: MEMORY

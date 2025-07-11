@@ -16,6 +16,7 @@ from typing import Dict, Any
 
 from ..core.generate_table_metadata import generate_complete_table_metadata
 from ..core.semantic_models import generate_lookml_model
+from ..utils.storage_utils import get_metadata_storage_path, get_fully_qualified_table_name
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress
@@ -103,15 +104,20 @@ def main():
             if args.output:
                 output_path = args.output
             else:
-                # Default output directory
-                output_dir = os.path.join(os.path.dirname(__file__), 'metadata')
-                os.makedirs(output_dir, exist_ok=True)
-                
+                # Use consistent storage path with db.schema.table format
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                output_path = os.path.join(
-                    output_dir,
-                    f"{args.db}_{args.schema}_{args.table}_lookml_{timestamp}.{args.format}"
+                table_name_with_timestamp = f"{args.table}_lookml_{timestamp}"
+                
+                output_path = get_metadata_storage_path(
+                    args.db, 
+                    args.schema, 
+                    table_name_with_timestamp,
+                    base_dir="metadata_cli_output"
                 )
+                
+                # Change extension if needed
+                if args.format == "yaml":
+                    output_path = output_path.with_suffix('.yaml')
             
             # Save LookML output
             with open(output_path, 'w') as f:
@@ -161,15 +167,20 @@ def main():
         if args.output:
             output_path = args.output
         else:
-            # Default output directory
-            output_dir = os.path.join(os.path.dirname(__file__), 'metadata')
-            os.makedirs(output_dir, exist_ok=True)
-            
+            # Use consistent storage path with db.schema.table format
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            output_path = os.path.join(
-                output_dir,
-                f"{args.db}_{args.schema}_{args.table}_{timestamp}.{args.format}"
+            table_name_with_timestamp = f"{args.table}_{timestamp}"
+            
+            output_path = get_metadata_storage_path(
+                args.db, 
+                args.schema, 
+                table_name_with_timestamp,
+                base_dir="metadata_cli_output"
             )
+            
+            # Change extension if needed
+            if args.format == "yaml":
+                output_path = output_path.with_suffix('.yaml')
         
         # Save output
         with open(output_path, 'w') as f:

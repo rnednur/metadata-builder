@@ -1,8 +1,14 @@
 import logging
 import pandas as pd
 from typing import Dict, Any, List
+import re
 
 logger = logging.getLogger(__name__)
+
+def _validate_identifier(identifier: str) -> bool:
+    """Validate SQL identifier to prevent injection."""
+    # Only allow alphanumeric, underscore, and basic characters
+    return re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', identifier) is not None
 
 def extract_categorical_values(df: pd.DataFrame, categorical_columns: List[str], db_name: str, schema_name: str, table_name: str) -> Dict[str, List[Any]]:
     """
@@ -20,26 +26,68 @@ def extract_categorical_values(df: pd.DataFrame, categorical_columns: List[str],
     """
     from .database_handler import SQLAlchemyHandler  # Import here to avoid circular imports
     
+    # Validate identifiers to prevent SQL injection
+    if not _validate_identifier(schema_name):
+        raise ValueError(f"Invalid schema name: {schema_name}")
+    if not _validate_identifier(table_name):
+        raise ValueError(f"Invalid table name: {table_name}")
+    
     db = SQLAlchemyHandler(db_name)
     categorical_values = {}
 
     max_unique_values = 20
     min_unique_values = 2
     try:
-        # Get total row count
-        count_sql = f"SELECT COUNT(*) as count FROM {schema_name}.{table_name}"
-        result = db.fetch_one(count_sql)
-        row_count = result['count'] if 'count' in result else list(result.values())[0]
+        # Get total row count using parameterized query
+        if db.engine.dialect.name == 'sqlite':
+            count_sql = f"SELECT COUNT(*) as count FROM {table_name}"
+        else:
+            count_sql = """
+                SELECT COUNT(*) as count 
+                FROM information_schema.tables 
+                WHERE table_schema = :schema_name AND table_name = :table_name
+            """
+        
+        result = db.fetch_one(count_sql, {"schema_name": schema_name, "table_name": table_name})
+        row_count = result['count'] if result and 'count' in result else 0
+        
+        # Get actual row count if table exists
+        if row_count > 0:
+            if db.engine.dialect.name == 'sqlite':
+                actual_count_sql = f"SELECT COUNT(*) as count FROM {table_name}"
+                result = db.fetch_one(actual_count_sql)
+            else:
+                actual_count_sql = f"SELECT COUNT(*) as count FROM {schema_name}.{table_name}"
+                result = db.fetch_one(actual_count_sql)
+            row_count = result['count'] if result else 0
         
         for col in categorical_columns:
+            # Validate column name
+            if not _validate_identifier(col):
+                logger.warning(f"Skipping invalid column name: {col}")
+                continue
+                
             try:
                 if row_count <= 10000:
-                    # For smaller tables, use SELECT DISTINCT
-                    distinct_sql = f"""SELECT DISTINCT "{col}" FROM {schema_name}.{table_name} 
-                        WHERE "{col}" IS NOT NULL ORDER BY "{col}"
-                        LIMIT 30
-                    """
-                    results = db.fetch_all(distinct_sql)
+                    # For smaller tables, use SELECT DISTINCT with proper quoting
+                    if db.engine.dialect.name == 'sqlite':
+                        distinct_sql = f"""
+                            SELECT DISTINCT "{col}" 
+                            FROM {table_name} 
+                            WHERE "{col}" IS NOT NULL 
+                            ORDER BY "{col}"
+                            LIMIT 30
+                        """
+                        results = db.fetch_all(distinct_sql)
+                    else:
+                        distinct_sql = f"""
+                            SELECT DISTINCT "{col}" 
+                            FROM {schema_name}.{table_name} 
+                            WHERE "{col}" IS NOT NULL 
+                            ORDER BY "{col}"
+                            LIMIT 30
+                        """
+                        results = db.fetch_all(distinct_sql)
                     unique_vals = [row[col] for row in results]
                 else:
                     # For larger tables, use the sample data
@@ -49,7 +97,7 @@ def extract_categorical_values(df: pd.DataFrame, categorical_columns: List[str],
                 
                 # Skip if too many unique values
                 if len(unique_vals) > max_unique_values:
-                    logger.info(f"Skipping {col}: too many unique values ({len(unique_vals)} > {max_unique_values} )")
+                    logger.info(f"Skipping {col}: too many unique values ({len(unique_vals)} > {max_unique_values})")
                     continue
                     
                 # Filter values that are meaningful enough for definition

@@ -137,7 +137,7 @@ def test_function_name_expected_behavior():
 metadata-builder/
 ├── config/                 # Configuration management
 ├── utils/                  # Utility functions
-├── metadata/              # Metadata storage and exceptions
+├── metadata_storage/      # Generated metadata in db.schema.table format
 ├── database/              # Database-specific enums and handlers
 ├── tests/                 # Test files
 ├── main.py               # Interactive CLI entry point

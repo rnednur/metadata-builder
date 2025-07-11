@@ -117,12 +117,12 @@ def generate_lookml_model(
     token_counter = TokenCounter(model)
 
     # Get API config including model
-    api_config = get_llm_api_config()
+    api_key, base_url, model_name = get_llm_api_config()
     client = OpenAI(
-        api_key=api_config.get('api_key'),
-        base_url=api_config.get('base_url', 'https://api.openai.com/v1')
+        api_key=api_key,
+        base_url=base_url
     )
-    model = model or api_config.get('model', 'gpt-4-turbo-preview')
+    model = model or model_name
     logger.debug(f"Using model: {model}")
 
     # Use provided metadata or fetch from database

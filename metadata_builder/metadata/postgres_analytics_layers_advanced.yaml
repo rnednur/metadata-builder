@@ -1,0 +1,7 @@
+database_name: postgres
+schema_name: analytics
+table_name: layers
+error: Each database handler must implement get_table_indexes
+processing_stats:
+  start_time: '2025-05-20T23:43:53.082998'
+  steps: []

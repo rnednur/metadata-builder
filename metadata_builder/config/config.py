@@ -162,6 +162,9 @@ def get_db_handler(db_name: str):
     elif db_type == 'oracle':
         from ..utils.database_handlers import OracleHandler
         return OracleHandler(db_name)
+    elif db_type == 'bigquery':
+        from ..utils.bigquery_handler import BigQueryHandler
+        return BigQueryHandler(db_name)
     elif db_type == 'duckdb':
         from ..utils.database_handler import SQLAlchemyHandler
         return SQLAlchemyHandler(db_name)
@@ -170,29 +173,55 @@ def get_db_handler(db_name: str):
         from ..utils.database_handler import SQLAlchemyHandler
         return SQLAlchemyHandler(db_name)
 
-def get_llm_api_config() -> Dict[str, Any]:
+def get_llm_api_config() -> Tuple[str, str, str]:
     """
-    Get LLM API configuration.
+    Get LLM API configuration with support for multiple providers.
+    
+    Supports OpenRouter, OpenAI, Anthropic, and other OpenAI-compatible APIs.
+    Priority: Environment variables > config file > defaults
     
     Returns:
-        Dictionary with LLM API configuration
+        Tuple of (api_key, base_url, model)
     """
     config = load_config()
     
     # Get base config with defaults
-    llm_config = config.get('llm_api', {}).copy()
+    llm_config = config.get('llm_api', {})
     
-    # Override with environment variables if set
-    if os.environ.get('OPENAI_API_KEY'):
-        llm_config['api_key'] = os.environ.get('OPENAI_API_KEY')
+    # Default values
+    api_key = llm_config.get('api_key', '')
+    base_url = llm_config.get('base_url', 'https://api.openai.com/v1')
+    model = llm_config.get('model', 'gpt-3.5-turbo')
     
-    if os.environ.get('OPENAI_API_BASE_URL'):
-        llm_config['base_url'] = os.environ.get('OPENAI_API_BASE_URL')
+    # Priority 1: OpenRouter (recommended for access to multiple models)
+    if os.environ.get('OPENROUTER_API_KEY'):
+        api_key = os.environ.get('OPENROUTER_API_KEY')
+        base_url = os.environ.get('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1')
+        model = os.environ.get('OPENROUTER_MODEL', 'anthropic/claude-3.5-sonnet')
+        logger.info(f"Using OpenRouter with model: {model}")
         
-    if os.environ.get('OPENAI_API_MODEL'):
-        llm_config['model'] = os.environ.get('OPENAI_API_MODEL')
+    # Priority 2: OpenAI (if OpenRouter not configured)
+    elif os.environ.get('OPENAI_API_KEY'):
+        api_key = os.environ.get('OPENAI_API_KEY')
+        base_url = os.environ.get('OPENAI_BASE_URL', 'https://api.openai.com/v1')
+        model = os.environ.get('OPENAI_MODEL', 'gpt-4-turbo-preview')
+        logger.info(f"Using OpenAI with model: {model}")
         
-    return llm_config
+    # Priority 3: Anthropic (if neither OpenRouter nor OpenAI configured)
+    elif os.environ.get('ANTHROPIC_API_KEY'):
+        api_key = os.environ.get('ANTHROPIC_API_KEY')
+        base_url = os.environ.get('ANTHROPIC_BASE_URL', 'https://api.anthropic.com')
+        model = os.environ.get('ANTHROPIC_MODEL', 'claude-3-opus-20240229')
+        logger.info(f"Using Anthropic with model: {model}")
+        
+    # Priority 4: Use config file values if no environment variables
+    else:
+        logger.info(f"Using config file LLM settings with model: {model}")
+    
+    if not api_key:
+        logger.warning("No LLM API key found. Please set OPENROUTER_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY environment variable.")
+        
+    return api_key, base_url, model
 
 def get_glossary_config() -> Dict[str, Any]:
     """

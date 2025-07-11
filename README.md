@@ -7,7 +7,7 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![codecov](https://codecov.io/gh/yourusername/metadata-builder/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/metadata-builder)
 
-An interactive CLI tool for generating structured metadata from database tables, with LLM-enhanced capabilities.
+An interactive CLI tool for generating structured metadata from database tables, with LLM-enhanced capabilities and modern web interface.
 
 ## Features
 
@@ -16,6 +16,7 @@ An interactive CLI tool for generating structured metadata from database tables,
 - Generate structured metadata for tables
 - Interactive prompts for metadata enrichment
 - LLM integration for intelligent metadata suggestions and analysis
+- **NEW: Modern Web Interface** - React-based frontend for intuitive metadata management
 - **NEW: LookML semantic model generation** - Generate LookML views and explores automatically
 - **NEW: REST API support** - Programmatic access to all metadata builder functionality
 - Automatic identification of categorical and numerical columns
@@ -27,6 +28,8 @@ An interactive CLI tool for generating structured metadata from database tables,
 
 ## Installation
 
+### Backend Installation
+
 1. Clone the repository:
 ```bash
 git clone https://github.com/rnednur/metadata-builder.git
@@ -36,6 +39,9 @@ cd metadata-builder
 2. Install dependencies:
 ```bash
 pip install -r requirements.txt
+
+# Or install with frontend support
+pip install -e ".[frontend]"
 ```
 
 3. Configure environment variables:
@@ -57,16 +63,98 @@ MAX_TOKENS_PER_REQUEST=8192
 MAX_RETRY_ATTEMPTS=3
 RETRY_INITIAL_WAIT_SECONDS=1
 RETRY_MAX_WAIT_SECONDS=10
+
+# Frontend Integration (optional)
+REDIS_PASSWORD=metadata_redis_pass
+JWT_SECRET_KEY=your-secret-key-change-in-production
+CORS_ORIGINS=http://localhost:3000,http://localhost:80
 ```
 
-4. (Optional) Configure local settings:
-Copy the example configuration file to create your own local configuration:
+### Frontend Installation (Optional)
+
+For the complete web interface experience:
+
+1. **Prerequisites**:
+   - Node.js 18+ and npm 9+
+   - Redis (for session storage and caching)
+
+2. **Quick Demo Setup** (Recommended for first-time users):
 ```bash
-cp .config.yaml.example .config.yaml
+# Start frontend with demo data (no backend required)
+./scripts/demo_frontend.sh
 ```
-Edit `.config.yaml` to customize database connections and other settings.
+
+3. **Full Frontend Setup**:
+```bash
+# Setup frontend with backend integration
+./scripts/setup_frontend.sh
+cd frontend
+npm run dev
+```
+
+4. **Development Mode**:
+```bash
+# Start backend API (in one terminal)
+python -m metadata_builder.api.server
+
+# Start frontend (in another terminal)
+cd frontend
+npm run dev
+```
+
+5. **Production Build**:
+```bash
+# Build frontend for production
+cd frontend
+npm run build
+
+# Or use Docker Compose for full stack
+docker-compose -f docker-compose.fullstack.yml up
+```
+
+### Quick Start with Docker
+
+For the fastest setup with both frontend and backend:
+
+```bash
+# Clone and navigate to the project
+git clone https://github.com/rnednur/metadata-builder.git
+cd metadata-builder
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your OpenAI API key
+
+# Start the full stack
+docker-compose -f docker-compose.fullstack.yml up
+
+# Access the application
+# Frontend: http://localhost:3000
+# API: http://localhost:8000
+# API Docs: http://localhost:8000/docs
+```
 
 ## Usage
+
+### Web Interface (Recommended)
+
+Access the modern web interface at `http://localhost:3000` after starting the frontend. The web interface provides:
+
+- **Intuitive Database Connection Management**: Visual forms for all database types
+- **Interactive Schema Explorer**: Browse databases, schemas, and tables with search/filter
+- **Real-time Metadata Generation**: Watch progress as metadata is generated
+- **Advanced Analytics Dashboard**: Visual data quality metrics and statistical analysis
+- **LookML Generation Interface**: Generate and preview LookML models
+- **Metadata Editor**: Edit and export metadata in JSON/YAML formats
+
+**Key Features of the Web Interface**:
+- 📱 **Responsive Design**: Works on desktop, tablet, and mobile
+- 🎨 **Modern UI**: Built with Ant Design components
+- ⚡ **Real-time Updates**: WebSocket integration for live progress
+- 🔍 **Advanced Search**: Find tables and columns quickly
+- 📊 **Visual Analytics**: Charts and graphs for data insights
+- 🚀 **Performance Optimized**: Fast loading with caching
+- ♿ **Accessible**: WCAG 2.1 AA compliant
 
 ### Interactive Mode
 
@@ -141,7 +229,7 @@ response = requests.post("http://localhost:8000/api/v1/metadata/generate", json=
 metadata = response.json()
 ```
 
-For detailed API documentation, see [API_DOCUMENTATION.md](API_DOCUMENTATION.md).
+For detailed API documentation, see [documentation/API_DOCUMENTATION.md](documentation/API_DOCUMENTATION.md).
 
 ### Command-line Mode
 
@@ -192,7 +280,7 @@ Example with custom options:
 ```bash
 python cli.py --db sales_db --table customers --schema sales \
               --sample-size 200 --num-samples 3 --format yaml \
-              --summary --output ./metadata/customer_metadata.yaml
+              --summary --output ./metadata_storage/postgres/public/customer_metadata.yaml
 ```
 
 ### Oracle Database Configuration
@@ -301,9 +389,11 @@ The tool uses OpenAI's API to enhance metadata generation. To use this feature:
 - `cli.py`: Command-line interface for automation
 - `generate_table_metadata.py`: Core functions for advanced metadata generation
 - `config/`: Configuration management
-- `metadata/`: Generated metadata and related utilities
+- `metadata_storage/`: Generated metadata stored in db.schema.table format
 - `utils/`: Utility functions and helpers including metadata extraction utilities
 - `llm_service.py`: LLM integration service
+- `frontend/`: React-based web interface
+- `documentation/`: Comprehensive project documentation
 
 ## Development
 
@@ -343,6 +433,9 @@ pip install metadata-builder[oracle,bigquery]
 
 # Development installation
 pip install metadata-builder[dev]
+
+# With frontend support
+pip install metadata-builder[frontend]
 ```
 
 ### Docker Installation
@@ -385,9 +478,26 @@ pip install -e ".[dev]"
 pre-commit install
 ```
 
+## Documentation
+
+📚 **Comprehensive documentation is available in the [`documentation/`](documentation/) directory:**
+
+### Quick Links
+- **[Frontend Setup Guide](documentation/FRONTEND_INSTALLATION.md)** - Complete frontend installation
+- **[API Documentation](documentation/API_DOCUMENTATION.md)** - REST API reference  
+- **[LookML Generation](documentation/README_LOOKML.md)** - Semantic model generation
+- **[Contributing Guide](documentation/CONTRIBUTING.md)** - Development setup
+- **[Security Policy](documentation/SECURITY.md)** - Security guidelines
+
+### Categories
+- **Getting Started**: Installation guides and quick start
+- **API & Integration**: Technical integration documentation
+- **Features & Capabilities**: Detailed feature guides
+- **Technical Documentation**: Architecture and implementation
+
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](documentation/CONTRIBUTING.md) for details.
 
 ### Quick Start for Contributors
 
@@ -425,7 +535,7 @@ pre-commit install
 
 ## Security
 
-Please see our [Security Policy](SECURITY.md) for information about reporting security vulnerabilities.
+Please see our [Security Policy](documentation/SECURITY.md) for information about reporting security vulnerabilities.
 
 ## License
 
@@ -433,11 +543,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for a list of changes in each version.
+See [documentation/CHANGELOG.md](documentation/CHANGELOG.md) for a list of changes in each version.
 
 ## Support
 
-- **Documentation**: Check this README and inline code documentation
+- **Documentation**: Check the [`documentation/`](documentation/) directory
 - **Issues**: [GitHub Issues](https://github.com/yourusername/metadata-builder/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/metadata-builder/discussions)
 - **Email**: your.email@example.com
@@ -452,12 +562,55 @@ See [CHANGELOG.md](CHANGELOG.md) for a list of changes in each version.
 ## Roadmap
 
 - [ ] Support for additional semantic model types (dbt, Cube.js)
-- [ ] Web-based interface
 - [ ] Advanced data profiling capabilities
 - [ ] Integration with data catalogs
 - [ ] Real-time metadata synchronization
 - [ ] Custom metadata templates
-- [ ] API for programmatic access
+- [ ] Enhanced web interface features
+
+## BigQuery Partition Support
+
+The metadata-builder provides **advanced partition awareness** for BigQuery tables, ensuring cost-effective and efficient metadata generation:
+
+#### 🎯 **Partition-Aware Features**
+- **Automatic partition detection** - Identifies partitioned tables and extracts partition metadata
+- **Cost optimization** - Uses partition pruning to avoid expensive full table scans
+- **Partition metadata** - Extracts partition type, column, and available partitions
+- **Smart sampling** - Samples from recent partitions only, not entire table history
+- **Query cost estimation** - Dry-run analysis before executing expensive queries
+- **Table decorator support** - Uses `table$20231201` syntax for specific partitions
+
+#### 📊 **Supported Partition Types**
+- **Time partitioning** (daily, monthly, yearly)
+- **Integer range partitioning**
+- **Clustering field detection**
+- **Ingestion-time partitioning**
+
+#### 💰 **Cost Protection**
+```python
+# Automatic cost estimation and protection
+metadata = generate_complete_table_metadata(
+    db_name="my_bigquery",
+    table_name="events",  # Large partitioned table
+    schema_name="analytics",
+    sample_size=1000,     # Samples per partition
+    num_samples=5         # Recent partitions only
+)
+
+# Access partition information
+partition_info = metadata.get('partition_info', {})
+if partition_info.get('is_partitioned'):
+    print(f"Partition type: {partition_info['partition_type']}")
+    print(f"Available partitions: {len(partition_info['available_partitions'])}")
+```
+
+#### ⚡ **Performance Benefits**
+- **10-100x faster** sampling on large partitioned tables
+- **Significant cost reduction** by avoiding full table scans
+- **Predictable query costs** with dry-run estimation
+- **Partition pruning** automatically applied
+
+For detailed examples, see [`examples/bigquery_partition_example.py`](examples/bigquery_partition_example.py).
 
 ---
 

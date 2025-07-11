@@ -1,7 +1,10 @@
-entry_points={
-    "console_scripts": [
-        "metadata-builder=metadata_builder.cli.main:main",
-        "metadata-builder-cli=metadata_builder.cli.cli:main",
-        "metadata-builder-api=metadata_builder.api.server:main",
-    ],
-}, 
+#!/usr/bin/env python3
+
+"""Setup.py for metadata-builder package.
+
+This is a minimal setup.py that delegates to pyproject.toml.
+"""
+
+from setuptools import setup
+
+setup() 

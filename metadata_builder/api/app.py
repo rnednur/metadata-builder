@@ -13,7 +13,7 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 
 from .models import HealthResponse, ErrorResponse
-from .routers import database, metadata
+from .routers import database, metadata, agent, auth
 from .dependencies import get_connection_manager, get_job_manager
 from ..config.config import get_llm_api_config
 
@@ -75,8 +75,10 @@ def create_app() -> FastAPI:
     )
     
     # Include routers
+    app.include_router(auth.router, prefix="/api/v1")
     app.include_router(database.router, prefix="/api/v1")
     app.include_router(metadata.router, prefix="/api/v1")
+    app.include_router(agent.router, prefix="/api/v1")
     
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
@@ -105,20 +107,26 @@ def create_app() -> FastAPI:
     async def health_check():
         """Health check endpoint."""
         try:
-            # Check database connections
-            conn_manager = get_connection_manager()
-            connection_count = len(conn_manager.get_all_connections())
-            
             # Check LLM API status
             llm_status = "not_configured"
             try:
-                llm_config = get_llm_api_config()
-                if llm_config.get('api_key'):
+                api_key, base_url, model = get_llm_api_config()
+                if api_key:
                     llm_status = "configured"
                 else:
                     llm_status = "missing_api_key"
             except Exception as e:
                 llm_status = f"error: {str(e)}"
+            
+            # Basic health check without requiring authentication
+            connection_count = 0
+            try:
+                from ..config.config import load_config
+                config = load_config()
+                if config and config.get('databases'):
+                    connection_count = len(config.get('databases', {}))
+            except Exception:
+                pass
             
             return HealthResponse(
                 status="healthy",
@@ -177,12 +185,12 @@ def create_app() -> FastAPI:
         """Application startup event."""
         logger.info("Starting Metadata Builder API")
         
-        # Initialize managers
-        conn_manager = get_connection_manager()
+        # Initialize job manager
         job_manager = get_job_manager()
         
-        logger.info(f"Loaded {len(conn_manager.get_all_connections())} database connections")
+        # Log startup completion
         logger.info("Metadata Builder API started successfully")
+        logger.info("Multi-user authentication system enabled")
     
     @app.on_event("shutdown") 
     async def shutdown_event():
