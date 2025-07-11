@@ -39,7 +39,7 @@ RUN mkdir -p /app/metadata /app/logs
 
 # Set default environment variables
 ENV LOG_LEVEL=INFO \
-    METADATA_OUTPUT_DIR=/app/metadata
+    METADATA_OUTPUT_DIR=/app/metadata_storage
 
 # Expose port for potential web interface
 EXPOSE 8000

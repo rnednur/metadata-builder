@@ -71,7 +71,7 @@ metadata_builder/
 ├── config/                            # Configuration management
 ├── database/                          # Database connectivity
 ├── llm/                               # LLM integration services
-├── metadata/                          # Metadata generation logic
+├── metadata_storage/                  # Generated metadata storage (db.schema.table format)
 ├── models/                            # Data models and schemas
 ├── utils/                             # Utility functions
 └── worker/                            # Background task workers
@@ -125,12 +125,18 @@ examples/
 └── config_examples/                   # Configuration examples
 ```
 
-### `/metadata/` - Generated Output
+### `/metadata_storage/` - Generated Output
 ```
-metadata/
-├── example_metadata.json             # Example metadata output
-├── example_metadata.yaml             # Example YAML output
-└── generated/                         # User-generated metadata (ignored)
+metadata_storage/
+├── database_name/                     # Database-specific metadata
+│   ├── schema_name/                   # Schema-specific organization
+│   │   ├── table_name.json            # Table metadata files
+│   │   └── another_table.json         # Additional tables
+│   └── another_schema/                # Multiple schemas supported
+│       └── table_name.json            # Same table name, different schema
+└── another_database/                  # Multiple databases supported
+    └── public/
+        └── table_name.json            # Same table name, different database
 ```
 
 ## Key Design Principles

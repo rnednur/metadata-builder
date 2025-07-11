@@ -30,6 +30,21 @@ column_simplification:
     - ^created$
     - ^updated$
     - ^timestamp$
+# Database configuration
+database:
+  # Schema for user management tables
+  auth_schema: metadata_builder
+  
+  # Main connection (used for user management)
+  connection_string: postgresql://postgres:postgres@localhost:5432/postgres
+  host: localhost
+  port: 5432
+  database: postgres
+  username: postgres
+  password: postgres
+  type: postgresql
+
+# User connection databases (legacy - will be migrated to user_connections table)
 databases:
   postgres:
     connection_string: postgresql://postgres:postgres@localhost:5432/postgres
@@ -39,54 +54,6 @@ databases:
     port: '5432'
     type: postgresql
     username: postgres
-  sample_duckdb:
-    connection_string: duckdb:///./data/mydb.duckdb
-    database: ./data/mydb.duckdb
-    type: duckdb
-  sample_mysql:
-    connection_string: mysql+pymysql://root:${MYSQL_PASSWORD}@localhost:3306/mydb
-    database: mydb
-    host: localhost
-    password: ${MYSQL_PASSWORD}
-    port: 3306
-    type: mysql
-    username: root
-  sample_oracle_service:
-    connection_string: oracle+cx_oracle://system:${ORACLE_PASSWORD}@localhost:1521/?service_name=XEPDB1
-    database: XEPDB1
-    host: localhost
-    password: ${ORACLE_PASSWORD}
-    port: 1521
-    service_name: XEPDB1
-    type: oracle
-    username: system
-  sample_oracle_sid:
-    connection_string: oracle+cx_oracle://system:${ORACLE_PASSWORD}@localhost:1521/?sid=XE
-    database: XE
-    host: localhost
-    password: ${ORACLE_PASSWORD}
-    port: 1521
-    sid: XE
-    type: oracle
-    username: system
-  sample_oracle_tns:
-    connection_string: oracle+cx_oracle://system:${ORACLE_PASSWORD}@my_tns_name
-    password: ${ORACLE_PASSWORD}
-    tns_name: my_tns_name
-    type: oracle
-    username: system
-  sample_postgres:
-    connection_string: postgresql://postgres:${POSTGRES_PASSWORD}@localhost:5432/mydb
-    database: mydb
-    host: localhost
-    password: ${POSTGRES_PASSWORD}
-    port: 5432
-    type: postgresql
-    username: postgres
-  sample_sqlite:
-    connection_string: sqlite:///./data/mydb.sqlite
-    database: ./data/mydb.sqlite
-    type: sqlite
 glossary:
   auto_match: true
   enabled: true
@@ -139,7 +106,7 @@ llm_api:
   temperature: 0.2
 metadata:
   default_format: yaml
-  output_dir: ./metadata
+  output_dir: ./metadata_storage
   templates:
     column:
       business_name: ''

@@ -25,6 +25,7 @@ from rich.progress import Progress
 # Import the advanced metadata generation function
 from ..core.generate_table_metadata import generate_complete_table_metadata
 from ..utils.database_handler import SQLAlchemyHandler
+from ..utils.storage_utils import get_metadata_storage_path, get_fully_qualified_table_name
 from ..config.config import load_config, get_db_config, get_db_handler
 from ..core.semantic_models import generate_lookml_model
 
@@ -464,14 +465,16 @@ class MetadataGenerator:
             query = f"SELECT * FROM {qualified_table_name} LIMIT 5"
             sample_data = db.fetch_all(query)
             
-            # Load existing metadata if available
-            metadata_file = os.path.join(
-                self.metadata_output_dir,
-                f"{self.current_db}_{self.current_schema}_{self.current_table}.yaml"
-            )
+            # Load existing metadata if available using consistent storage format
+            metadata_file = get_metadata_storage_path(
+                self.current_db, 
+                self.current_schema, 
+                self.current_table,
+                base_dir=self.metadata_output_dir
+            ).with_suffix('.yaml')
             
             existing_metadata = {}
-            if os.path.exists(metadata_file):
+            if metadata_file.exists():
                 with open(metadata_file, 'r') as f:
                     existing_metadata = yaml.safe_load(f)
             
@@ -525,22 +528,25 @@ class MetadataGenerator:
             
         try:
             # Ask for sample size and number of samples
+            console.print("[blue]Note: Sample data is retrieved minimally for LLM processing during metadata generation.[/blue]")
+            console.print("[blue]Full sample data is available dynamically through the API/frontend when needed.[/blue]")
+            
             use_custom_sql = questionary.confirm("Use custom SQL query for analysis?").ask()
             
             analysis_sql = None
             if use_custom_sql:
                 analysis_sql = questionary.text("Enter custom SQL query:").ask()
                 
-            sample_size = questionary.text("Sample size per batch (default: 100):", default="100").ask()
-            num_samples = questionary.text("Number of samples to take (default: 5):", default="5").ask()
+            sample_size = questionary.text("Sample size per batch (default: 20, minimal for LLM processing):", default="20").ask()
+            num_samples = questionary.text("Number of samples to take (default: 2, minimal for LLM processing):", default="2").ask()
             
             try:
                 sample_size = int(sample_size)
                 num_samples = int(num_samples)
             except ValueError:
-                console.print("[yellow]Invalid numbers. Using defaults: sample_size=100, num_samples=5[/yellow]")
-                sample_size = 100
-                num_samples = 5
+                console.print("[yellow]Invalid numbers. Using defaults: sample_size=20, num_samples=2[/yellow]")
+                sample_size = 20
+                num_samples = 2
             
             # Generate metadata
             with Progress() as progress:
@@ -557,16 +563,22 @@ class MetadataGenerator:
                 
                 progress.update(task, completed=1)
             
-            # Save as both YAML and JSON
-            yaml_file = os.path.join(
-                self.metadata_output_dir,
-                f"{self.current_db}_{self.current_schema}_{self.current_table}_advanced.yaml"
-            )
+            # Save as both YAML and JSON using consistent storage format
+            table_name_advanced = f"{self.current_table}_advanced"
             
-            json_file = os.path.join(
-                self.metadata_output_dir,
-                f"{self.current_db}_{self.current_schema}_{self.current_table}_advanced.json"
-            )
+            yaml_file = get_metadata_storage_path(
+                self.current_db, 
+                self.current_schema, 
+                table_name_advanced,
+                base_dir=self.metadata_output_dir
+            ).with_suffix('.yaml')
+            
+            json_file = get_metadata_storage_path(
+                self.current_db, 
+                self.current_schema, 
+                table_name_advanced,
+                base_dir=self.metadata_output_dir
+            ).with_suffix('.json')
             
             # Save YAML
             with open(yaml_file, 'w') as f:

@@ -19,6 +19,7 @@ class ChatRequest(BaseModel):
     user_id: str
     message: str
     session_id: Optional[str] = None
+    context: Optional[Dict[str, Any]] = None
 
 
 class ChatResponse(BaseModel):
@@ -60,7 +61,8 @@ async def chat_with_agent(
         response = await conversation_agent.handle_message(
             user_id=request.user_id,
             message=request.message,
-            session_id=request.session_id
+            session_id=request.session_id,
+            context=request.context
         )
         
         return ChatResponse(

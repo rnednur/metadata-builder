@@ -176,39 +176,55 @@ interface APIClient {
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.8.0",
-    "axios": "^1.3.0",
-    "antd": "^5.0.0",
-    "@ant-design/icons": "^5.0.0",
-    "react-query": "^3.39.0",
-    "react-hook-form": "^7.43.0",
-    "recharts": "^2.5.0",
-    "monaco-editor-react": "^4.4.0",
+    "react-router-dom": "^6.20.1",
+    "axios": "^1.6.2",
+    "antd": "^5.12.5",
+    "@ant-design/icons": "^5.2.6",
+    "@tanstack/react-query": "^5.8.4",
+    "react-hook-form": "^7.48.2",
+    "@hookform/resolvers": "^3.3.2",
+    "yup": "^1.3.3",
+    "recharts": "^2.8.0",
+    "@monaco-editor/react": "^4.6.0",
     "js-yaml": "^4.1.0",
-    "react-json-view": "^1.21.0"
+    "@uiw/react-json-view": "^2.0.0-alpha.18",
+    "dayjs": "^1.11.10",
+    "zustand": "^4.4.7",
+    "immer": "^10.0.3",
+    "react-toastify": "^9.1.3",
+    "lodash-es": "^4.17.21"
   },
   "devDependencies": {
-    "@types/react": "^18.0.0",
-    "@types/react-dom": "^18.0.0",
-    "@typescript-eslint/eslint-plugin": "^5.0.0",
-    "@typescript-eslint/parser": "^5.0.0",
-    "@vitejs/plugin-react": "^3.0.0",
-    "eslint": "^8.0.0",
+    "@types/react": "^18.2.39",
+    "@types/react-dom": "^18.2.17",
+    "@typescript-eslint/eslint-plugin": "^6.13.1",
+    "@typescript-eslint/parser": "^6.13.1",
+    "@vitejs/plugin-react": "^4.2.0",
+    "typescript": "^5.3.2",
+    "vite": "^5.0.5",
+    "vitest": "^1.0.1",
+    "@playwright/test": "^1.40.1",
+    "eslint": "^8.54.0",
+    "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
-    "prettier": "^2.8.0",
-    "typescript": "^4.9.0",
-    "vite": "^4.0.0"
+    "prettier": "^3.1.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.2.0",
+    "@storybook/react-vite": "^7.6.5"
   }
 }
 ```
 
 #### Additional Libraries
-- **State Management**: Redux Toolkit or Zustand
-- **Forms**: React Hook Form with Yup validation
+- **State Management**: Zustand (preferred) or Redux Toolkit
+- **Forms**: React Hook Form with Yup validation and @hookform/resolvers
+- **Async Data**: @tanstack/react-query for server state management
 - **Charts**: Recharts or Chart.js
-- **Code Editor**: Monaco Editor (VS Code editor)
-- **Date Handling**: date-fns or dayjs
+- **Code Editor**: @monaco-editor/react (VS Code editor)
+- **Date Handling**: dayjs or date-fns
 - **Notifications**: react-toastify or antd notifications
+- **Keyboard Shortcuts**: react-hotkeys-hook
+- **Head Management**: react-helmet-async
 
 ### Backend Requirements Updates
 

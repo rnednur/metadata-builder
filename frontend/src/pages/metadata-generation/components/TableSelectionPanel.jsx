@@ -271,14 +271,19 @@ const TableSelectionPanel = ({
                                   </div>
                                 </div>
                                 <div className="text-xs text-text-muted">
-                                  {tablesWithMetadata.has(table.id) ? (
-                                    <div className="flex items-center space-x-1">
-                                      <Icon name="Sparkles" size={12} className="text-accent" />
-                                      <span className="text-accent font-medium">Analyzed</span>
-                                    </div>
-                                  ) : (
-                                    'Not analyzed'
-                                  )}
+                                  {(() => {
+                                    // Convert table.id format to metadata ID format
+                                    // table.id is "schema.table", but metadata uses "database_schema_table"
+                                    const metadataId = `${database.name}_${schema.name}_${table.name}`;
+                                    return tablesWithMetadata.has(metadataId) ? (
+                                      <div className="flex items-center space-x-1">
+                                        <Icon name="Sparkles" size={12} className="text-accent" />
+                                        <span className="text-accent font-medium">Analyzed</span>
+                                      </div>
+                                    ) : (
+                                      'Not analyzed'
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             ))}

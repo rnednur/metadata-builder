@@ -280,7 +280,7 @@ Example with custom options:
 ```bash
 python cli.py --db sales_db --table customers --schema sales \
               --sample-size 200 --num-samples 3 --format yaml \
-              --summary --output ./metadata/customer_metadata.yaml
+              --summary --output ./metadata_storage/postgres/public/customer_metadata.yaml
 ```
 
 ### Oracle Database Configuration
@@ -389,7 +389,7 @@ The tool uses OpenAI's API to enhance metadata generation. To use this feature:
 - `cli.py`: Command-line interface for automation
 - `generate_table_metadata.py`: Core functions for advanced metadata generation
 - `config/`: Configuration management
-- `metadata/`: Generated metadata and related utilities
+- `metadata_storage/`: Generated metadata stored in db.schema.table format
 - `utils/`: Utility functions and helpers including metadata extraction utilities
 - `llm_service.py`: LLM integration service
 - `frontend/`: React-based web interface

@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 from ..core.llm_service import LLMClient
 from ..utils.database_handler import DatabaseHandler
-from ..core.generate_table_metadata import MetadataGenerator
+from ..core.generate_table_metadata import generate_complete_table_metadata
 
 
 class AgentState(Enum):
@@ -49,7 +49,6 @@ class MetadataAgent:
         self.config = config
         self.state = AgentState.IDLE
         self.llm_client = LLMClient()
-        self.metadata_generator = MetadataGenerator()
         self.task_queue: List[Task] = []
         self.active_tasks: Dict[str, Task] = {}
         self.completed_tasks: List[Task] = []
@@ -228,7 +227,7 @@ class MetadataAgent:
         Return a JSON response with the parsed request and suggested actions.
         """
         
-        response = await self.llm_client.call_llm_json(prompt, "intent_parsing")
+        response = self.llm_client.call_llm_json(prompt, "intent_parsing")
         
         # Convert parsed intent into tasks
         tasks = self._create_tasks_from_intent(response)

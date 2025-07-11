@@ -92,7 +92,7 @@ def identify_column_types(schema: Dict[str, str], df: pd.DataFrame) -> Tuple[Lis
             
     return categorical, numerical
 
-def extract_categorical_values(df: pd.DataFrame, categorical_columns: List[str], db_name: str, schema_name: str, table_name: str) -> Dict[str, List[Any]]:
+def extract_categorical_values(df: pd.DataFrame, categorical_columns: List[str], db_name: str, schema_name: str, table_name: str, connection_manager=None) -> Dict[str, List[Any]]:
     """
     Extract unique values for categorical columns, using direct SQL for smaller tables.
     
@@ -102,13 +102,18 @@ def extract_categorical_values(df: pd.DataFrame, categorical_columns: List[str],
         db_name: Database name
         schema_name: Schema name
         table_name: Table name
+        connection_manager: Optional connection manager for user/system connections
         
     Returns:
         Dictionary mapping column names to their unique values
     """
-    from .database_handler import SQLAlchemyHandler  # Import here to avoid circular imports
-    
-    db = SQLAlchemyHandler(db_name)
+    # Get database handler using connection manager if available
+    if connection_manager and connection_manager.connection_exists(db_name):
+        from .database_handlers import get_database_handler
+        db = get_database_handler(db_name, connection_manager)
+    else:
+        from .database_handler import SQLAlchemyHandler  # Import here to avoid circular imports
+        db = SQLAlchemyHandler(db_name)
     result = {}
     
     try:
@@ -245,12 +250,20 @@ def compute_numerical_stats(df: pd.DataFrame, numerical_columns: List[str]) -> D
         logger.info(f'Identifying numerical range for {col}')
         if col not in df.columns:
             logger.warning(f"Column {col} not found in DataFrame")
+            stats[col] = {
+                "min": None,
+                "max": None,
+                "mean": None,
+                "median": None,
+                "std": None,
+                "percentiles": {}
+            }
             continue
         try:
             numeric_series = pd.to_numeric(df[col], errors='coerce')
             
             # Only compute statistics if we have enough non-null values
-            if numeric_series.count() < 5:
+            if numeric_series.count() < 2:
                 stats[col] = {
                     "min": None,
                     "max": None,
@@ -304,6 +317,18 @@ def compute_data_quality_metrics(df: pd.DataFrame, schema: Dict[str, str]) -> Di
     total_rows = len(df)
     
     for col, dtype in schema.items():
+        # Skip if column is not in DataFrame
+        if col not in df.columns:
+            logger.warning(f"Column {col} not found in DataFrame")
+            metrics[col] = {
+                "completeness": 0,
+                "uniqueness": 0,
+                "common_issues": ["Column not found in sample data"],
+                "recommendations": ["Verify column exists in table"],
+                "data_type": dtype
+            }
+            continue
+            
         metrics[col] = {
             "completeness": round(df[col].notnull().mean() * 100, 2),
             "uniqueness": round((df[col].nunique() / total_rows * 100), 2),
@@ -311,10 +336,6 @@ def compute_data_quality_metrics(df: pd.DataFrame, schema: Dict[str, str]) -> Di
             "recommendations": [],
             "data_type": dtype
         }
-        
-        # Skip further checks if column is not in DataFrame
-        if col not in df.columns:
-            continue
             
         # Check for common issues
         try:
@@ -356,20 +377,26 @@ def compute_data_quality_metrics(df: pd.DataFrame, schema: Dict[str, str]) -> Di
     
     return metrics
 
-def extract_constraints(table_name: str, db_name: str) -> Dict[str, Any]:
+def extract_constraints(table_name: str, db_name: str, connection_manager=None) -> Dict[str, Any]:
     """
     Extract database constraints for a table.
     
     Args:
         table_name: Name of the table
         db_name: Database name
+        connection_manager: Optional connection manager for user/system connections
         
     Returns:
         Dictionary with constraint information
     """
-    from .database_handler import SQLAlchemyHandler  # Import here to avoid circular imports
+    # Get database handler using connection manager if available
+    if connection_manager and connection_manager.connection_exists(db_name):
+        from .database_handlers import get_database_handler
+        db = get_database_handler(db_name, connection_manager)
+    else:
+        from .database_handler import SQLAlchemyHandler  # Import here to avoid circular imports
+        db = SQLAlchemyHandler(db_name)
     
-    db = SQLAlchemyHandler(db_name)
     try:
         constraints = {
             'primary_keys': db.get_primary_keys(table_name),
